@@ -5,17 +5,27 @@ dotenv.config();
 
 const { Pool } = pg;
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres123',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'stockmate',
-});
+// Use DATABASE_URL if available (for Neon/Render production), otherwise fall back to local config
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false // Required for Neon cloud connections
+      }
+    }
+  : {
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres123',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'stockmate',
+    };
+
+const pool = new Pool(poolConfig);
 
 pool.connect()
   .then(client => {
-    console.log('Successfully connected to PostgreSQL database (stockmate).');
+    console.log('Successfully connected to PostgreSQL database.');
     client.release();
   })
   .catch(err => {
@@ -23,3 +33,4 @@ pool.connect()
   });
 
 export default pool;
+

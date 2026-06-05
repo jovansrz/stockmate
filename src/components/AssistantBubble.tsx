@@ -14,6 +14,7 @@ export function AssistantBubble() {
   // Hooks must be called before any early returns (Rules of Hooks)
   useEffect(() => {
     if (location.pathname === "/chat") return
+    if (localStorage.getItem("aiBubbleDismissed") === "true") return
     const timer = setTimeout(() => {
       setIsOpen(true)
     }, 5000)
@@ -39,6 +40,7 @@ export function AssistantBubble() {
               className="glass-card bg-primary/10 border-primary/20 p-4 rounded-2xl shadow-xl shadow-primary/20 relative cursor-pointer group flex items-center gap-3 w-64"
               onClick={() => {
                 setIsOpen(false)
+                localStorage.setItem("aiBubbleDismissed", "true")
                 navigate("/chat")
               }}
             >
@@ -57,6 +59,7 @@ export function AssistantBubble() {
                 onClick={(e) => {
                   e.stopPropagation()
                   setIsOpen(false)
+                  localStorage.setItem("aiBubbleDismissed", "true")
                 }}
               >
                 <X className="h-3 w-3" />

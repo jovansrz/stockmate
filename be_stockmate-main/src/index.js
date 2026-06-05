@@ -6,6 +6,7 @@ import user from './router/user.js';
 import auth from './router/auth.js';
 import course from './router/course.js';
 import market from './router/market.js';
+import chat from './router/chat.js';
 
 // Initialize DB connection
 import './config/db.js';
@@ -23,6 +24,7 @@ app.use('/auth', auth);
 app.use('/user', user);
 app.use('/course', course);
 app.use('/market', market);
+app.use('/chat', chat);
 app.use('/api', router);
 
 app.listen(PORT, () => {

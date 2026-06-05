@@ -71,3 +71,42 @@ export const updateUserSaldo = async (userId, newSaldo) => {
   const result = await pool.query(query, [newSaldo, userId]);
   return result.rows[0];
 };
+
+export const getUserById = async (id) => {
+  const query = `
+    SELECT 
+      * 
+    FROM 
+      userdata
+    WHERE 
+      id = $1
+  `;
+  const result = await pool.query(query, [id]);
+  return result.rows[0];
+};
+
+export const updateUserProfile = async (id, name, username, updateUsernameTimestamp) => {
+  let query;
+  let params;
+
+  if (updateUsernameTimestamp) {
+    query = `
+      UPDATE userdata
+      SET name = $1, username = $2, last_username_change = NOW()
+      WHERE id = $3
+      RETURNING id, name, username, last_username_change, totalxp, saldo_virtual
+    `;
+    params = [name, username, id];
+  } else {
+    query = `
+      UPDATE userdata
+      SET name = $1, username = $2
+      WHERE id = $3
+      RETURNING id, name, username, last_username_change, totalxp, saldo_virtual
+    `;
+    params = [name, username, id];
+  }
+
+  const result = await pool.query(query, params);
+  return result.rows[0];
+};

@@ -17,6 +17,7 @@ interface AuthState {
   setUser: (user: User) => void;
   logout: () => void;
   login: (token: string, user: User) => void;
+  updateUser: (data: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,6 +32,9 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('token', token); // Menyimpan token langsung agar bisa diakses di axios interceptor saat init
         set({ token, user, isAuthenticated: true });
       },
+      updateUser: (data) => set((state) => ({
+        user: state.user ? { ...state.user, ...data } : null
+      })),
       logout: () => {
         localStorage.removeItem('token');
         set({ token: null, user: null, isAuthenticated: false });

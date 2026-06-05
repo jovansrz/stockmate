@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/useAuthStore"
 import { useUserStore } from "@/store/useUserStore"
@@ -5,22 +6,65 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { formatCurrency, getSectorKey } from "@/lib/utils"
 import { useTranslation } from "@/hooks/useTranslation"
-import { LogOut, RefreshCw, Settings, Trophy, Target, Briefcase, Moon, Sun, Languages, Shield, Clock } from "lucide-react"
+import { LogOut, RefreshCw, Settings, Trophy, Target, Briefcase, Moon, Sun, Languages, Shield, Clock, Edit2 } from "lucide-react"
 import { motion, type Variants } from "framer-motion"
 import { useTheme } from "@/components/theme-provider"
+import api from "@/services/api"
+import { toast } from "sonner"
 
 export default function ProfilePage() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { profile, balance, xp, level, streak } = useUserStore()
+  const { profile, balance, xp, level, streak, checkStreak } = useUserStore()
   const { t, language, setLanguage } = useTranslation()
   const { theme, setTheme } = useTheme()
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editName, setEditName] = useState(user?.nama || "")
+  const [editUsername, setEditUsername] = useState(user?.username || "")
+  const [isSaving, setIsSaving] = useState(false)
+  const { updateUser } = useAuthStore()
+
+  useEffect(() => {
+    checkStreak()
+  }, [])
 
   const handleLogout = () => {
     logout()
     navigate("/")
+  }
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim() || !editUsername.trim()) {
+      toast.error(language === "id" ? "Nama dan Username tidak boleh kosong" : "Name and Username cannot be empty")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const response = await api.put(`/user/profile/${user?.id}`, {
+        name: editName,
+        username: editUsername
+      })
+      
+      if (response.data.success) {
+        updateUser({
+          nama: response.data.data.name,
+          username: response.data.data.username
+        })
+        toast.success(language === "id" ? "Profil berhasil diperbarui" : "Profile successfully updated")
+        setIsEditDialogOpen(false)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || (language === "id" ? "Gagal memperbarui profil" : "Failed to update profile"))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const containerVariants: Variants = {
@@ -64,7 +108,16 @@ export default function ProfilePage() {
                 <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} />
                 <AvatarFallback className="text-3xl bg-primary/10 text-primary">{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <h2 className="text-2xl font-bold">{user?.nama || user?.username}</h2>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                {user?.nama || user?.username}
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full" onClick={() => {
+                  setEditName(user?.nama || "")
+                  setEditUsername(user?.username || "")
+                  setIsEditDialogOpen(true)
+                }}>
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+              </h2>
               <p className="text-muted-foreground mb-4">@{user?.username}</p>
               
               <div className="flex gap-2 mb-6">
@@ -294,6 +347,59 @@ export default function ProfilePage() {
 
         </div>
       </div>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{language === "id" ? "Edit Profil" : "Edit Profile"}</DialogTitle>
+            <DialogDescription>
+              {language === "id" 
+                ? "Perbarui informasi akun Anda. Username hanya dapat diubah sekali setiap 14 hari." 
+                : "Update your account information. Username can only be changed once every 14 days."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                {language === "id" ? "Nama" : "Name"}
+              </Label>
+              <Input
+                id="name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="username" className="text-right">
+                Username
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="username"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                  <Clock className="h-3 w-3" />
+                  {language === "id" 
+                    ? "Hanya dapat diubah 1 kali per 14 hari" 
+                    : "Can only be changed once per 14 days"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSaving}>
+              {language === "id" ? "Batal" : "Cancel"}
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={isSaving || (!editName.trim() || !editUsername.trim())}>
+              {isSaving ? (language === "id" ? "Menyimpan..." : "Saving...") : (language === "id" ? "Simpan Perubahan" : "Save Changes")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

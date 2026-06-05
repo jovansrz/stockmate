@@ -187,7 +187,9 @@ export function AppLayout() {
           <div className="flex items-center gap-1">
           </div>
         </div>
-        <div className="container mx-auto p-4 md:p-8 max-w-5xl">
+        <div className={cn("container mx-auto transition-all duration-300", 
+          pathname === "/chat" ? "p-2 md:p-4 max-w-none" : "p-4 md:p-8 max-w-5xl"
+        )}>
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}

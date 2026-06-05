@@ -50,7 +50,7 @@ const itemVariants: Variants = {
 }
 
 export default function DashboardPage() {
-  const { balance, xp, level, streak } = useUserStore()
+  const { balance, xp, level, streak, checkStreak } = useUserStore()
   const { t, language } = useTranslation()
 
   const [marketOverview, setMarketOverview] = useState<MarketOverview | null>(null)
@@ -100,6 +100,7 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    checkStreak()
     fetchOverview()
     const id = setInterval(fetchOverview, POLL_INTERVAL_MS)
     return () => clearInterval(id)

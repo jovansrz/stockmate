@@ -22,7 +22,7 @@ export default function ModulePage() {
   const navigate = useNavigate()
   
   const { markCompleted, progress } = useLearningStore()
-  const { addXp, incrementStreak } = useUserStore()
+  const { addXp, interactWithModule } = useUserStore()
   const { t, language } = useTranslation()
   
   const [showQuiz, setShowQuiz] = useState(false)
@@ -83,7 +83,7 @@ export default function ModulePage() {
       if (!isCompleted) {
         markCompleted(module.id, 100)
         addXp(module.xpReward)
-        incrementStreak()
+        interactWithModule()
       }
       
       setTimeout(() => {

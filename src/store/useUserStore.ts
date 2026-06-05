@@ -15,6 +15,7 @@ interface UserState {
   xp: number;
   level: number;
   streak: number;
+  lastInteractionDate: string | null;
   profile: UserProfile | null;
   watchlist: string[];
   isSyncing: boolean;
@@ -27,6 +28,8 @@ interface UserState {
   addXp: (amount: number) => void;
   setProfile: (profile: UserProfile) => void;
   incrementStreak: () => void;
+  interactWithModule: () => void;
+  checkStreak: () => void;
   toggleWatchlist: (ticker: string) => void;
   syncFromBackend: () => Promise<void>;
 }
@@ -38,6 +41,7 @@ export const useUserStore = create<UserState>()(
       xp: 0,
       level: 1,
       streak: 0,
+      lastInteractionDate: null,
       profile: null,
       watchlist: [],
       isSyncing: false,
@@ -145,6 +149,51 @@ export const useUserStore = create<UserState>()(
 
       setProfile: (profile) => set({ profile }),
       incrementStreak: () => set((state) => ({ streak: state.streak + 1 })),
+
+      interactWithModule: () => set((state) => {
+        // Use local timezone to get the current date
+        const todayObj = new Date();
+        const today = new Date(todayObj.getTime() - (todayObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        
+        const lastDate = state.lastInteractionDate;
+        
+        if (!lastDate) {
+          return { streak: 1, lastInteractionDate: today };
+        }
+        
+        if (lastDate === today) {
+          return { lastInteractionDate: today };
+        }
+        
+        const lastDateObj = new Date(lastDate);
+        const diffTime = Math.abs(new Date(today).getTime() - lastDateObj.getTime());
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          return { streak: state.streak + 1, lastInteractionDate: today };
+        } else {
+          return { streak: 1, lastInteractionDate: today };
+        }
+      }),
+
+      checkStreak: () => set((state) => {
+        if (!state.lastInteractionDate) return state;
+        
+        const todayObj = new Date();
+        const today = new Date(todayObj.getTime() - (todayObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        const lastDate = state.lastInteractionDate;
+        
+        if (lastDate === today) return state;
+      
+        const lastDateObj = new Date(lastDate);
+        const diffTime = Math.abs(new Date(today).getTime() - lastDateObj.getTime());
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 1) {
+          return { streak: 0 };
+        }
+        return state;
+      }),
 
       toggleWatchlist: (ticker) => set((state) => {
         const alreadyIn = state.watchlist ? state.watchlist.includes(ticker) : false;

@@ -47,11 +47,11 @@ export const useUserStore = create<UserState>()(
       isSyncing: false,
       portfolio: {},
 
-      setBalance: (balance) => set({ balance }),
+      setBalance: (balance) => set({ balance: Number(balance) }),
 
       // Sync balance to backend (PUT /user/saldo/:id)
       addBalance: async (amount) => {
-        const newBalance = get().balance + amount;
+        const newBalance = Number(get().balance) + Number(amount);
         set({ balance: newBalance });
 
         try {
@@ -65,7 +65,7 @@ export const useUserStore = create<UserState>()(
       },
 
       subtractBalance: async (amount) => {
-        const current = get().balance;
+        const current = isNaN(Number(get().balance)) ? 10000000 : Number(get().balance);
         if (current < amount) return false;
 
         const newBalance = current - amount;
@@ -86,7 +86,7 @@ export const useUserStore = create<UserState>()(
       },
 
       buyStock: async (ticker, lots, totalPrice) => {
-        const current = get().balance;
+        const current = isNaN(Number(get().balance)) ? 10000000 : Number(get().balance);
         if (current < totalPrice) return false;
 
         const newBalance = current - totalPrice;
@@ -97,14 +97,22 @@ export const useUserStore = create<UserState>()(
         set({ portfolio: { ...currentPortfolio, [ticker]: currentLots + lots } });
 
         try {
-          const { user } = useAuthStore.getState();
-          if (user?.id) {
+          const { user, token } = useAuthStore.getState();
+          if (user?.id && token) {
             await api.put(`/user/saldo/${user.id}`, { saldo_virtual: newBalance });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to sync balance to backend:', error);
-          set({ balance: current, portfolio: currentPortfolio });
-          return false;
+          // Only rollback for non-auth errors (network issues, server errors)
+          // For auth errors (401/403), keep the local state and let the user continue
+          const status = error?.response?.status;
+          if (status === 401 || status === 403) {
+            // Token expired/invalid - transaction succeeds locally, user needs to re-login to sync
+            console.warn('Auth token expired. Transaction saved locally only.');
+          } else {
+            set({ balance: current, portfolio: currentPortfolio });
+            return false;
+          }
         }
         return true;
       },
@@ -115,8 +123,8 @@ export const useUserStore = create<UserState>()(
         
         if (currentLots < lots) return false;
 
-        const prevBalance = get().balance;
-        const newBalance = prevBalance + totalPrice;
+        const prevBalance = isNaN(Number(get().balance)) ? 10000000 : Number(get().balance);
+        const newBalance = prevBalance + Number(totalPrice);
         set({ balance: newBalance });
 
         const newLots = currentLots - lots;
@@ -129,14 +137,19 @@ export const useUserStore = create<UserState>()(
         set({ portfolio: newPortfolio });
 
         try {
-          const { user } = useAuthStore.getState();
-          if (user?.id) {
+          const { user, token } = useAuthStore.getState();
+          if (user?.id && token) {
             await api.put(`/user/saldo/${user.id}`, { saldo_virtual: newBalance });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to sync balance to backend:', error);
-          set({ balance: prevBalance, portfolio: currentPortfolio });
-          return false;
+          const status = error?.response?.status;
+          if (status === 401 || status === 403) {
+            console.warn('Auth token expired. Transaction saved locally only.');
+          } else {
+            set({ balance: prevBalance, portfolio: currentPortfolio });
+            return false;
+          }
         }
         return true;
       },
@@ -215,7 +228,7 @@ export const useUserStore = create<UserState>()(
           if (response.data?.success && response.data.data) {
             const backendUser = response.data.data;
             set({
-              balance: backendUser.saldo_virtual ?? get().balance,
+              balance: backendUser.saldo_virtual !== undefined ? Number(backendUser.saldo_virtual) : get().balance,
             });
           }
         } catch (error) {

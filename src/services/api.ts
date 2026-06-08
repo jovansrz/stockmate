@@ -31,7 +31,7 @@ api.interceptors.response.use(
   },
   (error) => {
     // Misalnya redirect ke login jika 401
-    if (error.response && error.response.status === 401) {
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       // window.location.href = '/login'; 

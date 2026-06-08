@@ -5,7 +5,7 @@ export const getUsers = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Successfully retrieved user data',
-      data: users
+      data: users.map(u => ({ ...u, saldo_virtual: u.saldo_virtual !== undefined ? Number(u.saldo_virtual) : 0 }))
     });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -32,7 +32,7 @@ export const getUser = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Successfully retrieved user data',
-      data: user
+      data: { ...user, saldo_virtual: user.saldo_virtual !== undefined ? Number(user.saldo_virtual) : 0 }
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -68,7 +68,7 @@ export const updateSaldo = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Successfully updated virtual balance',
-      data: updatedUser
+      data: { ...updatedUser, saldo_virtual: updatedUser.saldo_virtual !== undefined ? Number(updatedUser.saldo_virtual) : 0 }
     });
   } catch (error) {
     console.error('Error updating virtual balance:', error);
@@ -135,7 +135,7 @@ export const updateProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Successfully updated user profile',
-      data: updatedUser
+      data: { ...updatedUser, saldo_virtual: updatedUser.saldo_virtual !== undefined ? Number(updatedUser.saldo_virtual) : 0 }
     });
   } catch (error) {
     console.error('Error updating user profile:', error);

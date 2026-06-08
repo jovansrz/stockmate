@@ -34,7 +34,7 @@ export const login = async (req, res) => {
         id: user.id,
         username: user.username,
         Xp: user.totalxp + '%',
-        saldo_virtual: user.saldo_virtual || 0,
+        saldo_virtual: user.saldo_virtual !== undefined ? Number(user.saldo_virtual) : 0,
         minxp: minxp
       }
     });
@@ -80,7 +80,7 @@ export const register = async (req, res) => {
         nama: newUser.name,
         username: newUser.username,
         Xp: newUser.totalxp + '%', // Menyamakan dengan format Xp login Anda
-        saldo_virtual: newUser.saldo_virtual || 0,
+        saldo_virtual: newUser.saldo_virtual !== undefined ? Number(newUser.saldo_virtual) : 0,
         minxp: minxp
       }
     });

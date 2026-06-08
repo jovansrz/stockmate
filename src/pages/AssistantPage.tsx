@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
-import { Send, Bot, User, ArrowLeft, Sparkles, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeftOpen } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { Send, Bot, User, Sparkles, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { useTranslation } from "@/hooks/useTranslation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +30,6 @@ const containerVariants: Variants = {
 }
 
 export default function AssistantPage() {
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)

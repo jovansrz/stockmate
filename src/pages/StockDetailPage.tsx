@@ -157,10 +157,39 @@ export default function StockDetailPage() {
   const { t, language } = useTranslation()
   const TABS = getTabs(t)
 
-  const baseStock = stocksData.find((s) => s.ticker === ticker)
-
   // --- Yahoo Finance live data ---
   const { data: yfData, candleData, isLoading: yfLoading, isError: yfError, error: yfErrorInfo, refetch: yfRefetch } = useYahooFinance(ticker ?? "")
+
+  const baseStock = useMemo(() => {
+    const found = stocksData.find((s) => s.ticker === ticker)
+    if (found) return found
+
+    if (yfLoading || yfData) {
+      return {
+        ticker: ticker || "",
+        name: yfData?.companyName || ticker || "",
+        sector: "Lainnya",
+        price: yfData?.price || 0,
+        changePercent: yfData?.changePercent || 0,
+        volume: yfData?.volume || 0,
+        avgVolume: yfData?.volume || 0,
+        peRatio: yfData?.peRatio || null,
+        pbv: yfData?.pbv || null,
+        roe: yfData?.roe || null,
+        dividendYield: yfData?.dividendYield || null,
+        market: getMarketFromTicker(ticker || ""),
+        currency: yfData?.currency || getCurrencyFromTicker(ticker || ""),
+        trend: (yfData?.changePercent || 0) >= 0 ? "up" : "down",
+        isSharia: false,
+        board: "Utama",
+        healthScore: 50,
+        matchScore: 50,
+        fundamentalSummary: { id: "Data analitik berbasis cloud dari Yahoo Finance.", en: "Cloud-based analytics data from Yahoo Finance." },
+        description: { id: "Data saham global yang di-load secara dinamis. Informasi harga dan grafik bersifat real-time sesuai pasar.", en: "Dynamically loaded global stock data. Price and chart info are real-time based on the market." }
+      }
+    }
+    return undefined
+  }, [ticker, yfData, yfLoading])
 
   const stock = useMemo(() => {
     if (!baseStock) return undefined
@@ -321,7 +350,8 @@ export default function StockDetailPage() {
   const idrEquivalent = nativeCost * exchangeRate
 
   const handleBuy = async () => {
-    if (balance >= idrEquivalent) {
+    const currentBalance = isNaN(Number(balance)) ? 10000000 : Number(balance);
+    if (currentBalance >= idrEquivalent) {
       // Pass the fully converted Rupiah price as the third parameter to ensure correct deduction
       const success = await buyStock(stock.ticker, lotCount, idrEquivalent)
       if (success) {
@@ -336,11 +366,7 @@ export default function StockDetailPage() {
           }
         )
       } else {
-        toast.error(t("stockDetail.insufficientBalance"), {
-          description: (t("stockDetail.needAmount") as string)
-            .replace("{amount}", formatRupiah(idrEquivalent))
-            .replace("{lotCount}", lotCount.toString())
-        })
+        toast.error(language === "id" ? "Gagal memproses transaksi. Cek koneksi Anda." : "Transaction failed. Please check your connection.")
       }
     } else {
       toast.error(t("stockDetail.insufficientBalance"), {

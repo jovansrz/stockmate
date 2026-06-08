@@ -4,22 +4,23 @@ import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance();
 yahooFinance._setOpts({ validation: { logErrors: false } });
 
-// List of top IDX stocks to track for Screener and Top Gainers/Losers
 const TOP_IDX_STOCKS = [
-  'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', // Banking
-  'TLKM.JK', 'ASII.JK', 'GOTO.JK',             // Telco, Conglomerate, Tech
-  'AMMN.JK', 'BREN.JK', 'CUAN.JK', 'ADRO.JK', 'PTBA.JK', 'INCO.JK', // Energy/Mining
-  'ICBP.JK', 'INDF.JK', 'UNVR.JK', 'KLBF.JK', 'CPIN.JK', // Consumer/Healthcare
-  'PGEO.JK', 'UNTR.JK', 'CTRA.JK', 'ANTM.JK', 'SMGR.JK', // Others & Real Estate
-  'BRIS.JK', 'BUMI.JK', 'MEDC.JK', 'MDKA.JK', 'ISAT.JK', 'MYOR.JK', 'TPIA.JK', 'EXCL.JK', 'ACES.JK' // New IDX Additions
+  'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', 'BRIS.JK', 'BBTN.JK', 'PNBN.JK', 'MEGA.JK', 'NISP.JK', 'BNGA.JK', // Banking
+  'TLKM.JK', 'ASII.JK', 'GOTO.JK', 'ISAT.JK', 'EXCL.JK', 'TOWR.JK', 'TBIG.JK', 'MTEL.JK', // Telco, Conglomerate, Tech
+  'AMMN.JK', 'BREN.JK', 'CUAN.JK', 'ADRO.JK', 'PTBA.JK', 'INCO.JK', 'BUMI.JK', 'MEDC.JK', 'MDKA.JK', 'ITMG.JK', 'PGAS.JK', 'HRUM.JK', 'INDY.JK', // Energy/Mining
+  'ICBP.JK', 'INDF.JK', 'UNVR.JK', 'KLBF.JK', 'CPIN.JK', 'MYOR.JK', 'ACES.JK', 'SIDO.JK', 'JPFA.JK', 'CMRY.JK', 'AMRT.JK', // Consumer/Healthcare
+  'PGEO.JK', 'UNTR.JK', 'CTRA.JK', 'ANTM.JK', 'SMGR.JK', 'TPIA.JK', 'BRPT.JK', 'INKP.JK', 'TKIM.JK', 'BSDE.JK', 'PWON.JK', 'SMRA.JK', 'AKRA.JK', 'SILO.JK', 'MIKA.JK' // Others & Real Estate
 ];
 
 const US_STOCKS = [
-  'AAPL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'GOOG', 'META', 'NFLX', 'AMD', 'COIN'
+  'AAPL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'GOOG', 'META', 'NFLX', 'AMD', 'COIN',
+  'JPM', 'V', 'WMT', 'JNJ', 'MA', 'PG', 'AVGO', 'HD', 'CVX', 'MRK', 'PEP', 'COST',
+  'KO', 'ABBV', 'MCD', 'CRM', 'CSCO', 'ACN', 'LIN', 'BAC', 'TMO', 'ADBE', 'DIS'
 ];
 
 const GLOBAL_STOCKS = [
-  '7203.T', '0700.HK', 'ASML.AS', 'NESN.SW', 'SAP.DE', '9988.HK'
+  '7203.T', '0700.HK', 'ASML.AS', 'NESN.SW', 'SAP.DE', '9988.HK',
+  'TTE.PA', 'LVMH.PA', 'SIE.DE', 'NVO', 'TM', 'BABA', 'NVS', 'BHP', 'SONY'
 ];
 
 const ALL_STOCKS = [...TOP_IDX_STOCKS, ...US_STOCKS, ...GLOBAL_STOCKS];
@@ -254,7 +255,8 @@ export const getScreener = async (req, res) => {
           dividendYield: q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : (q.dividendYield ? q.dividendYield : 0),
           roe: q.returnOnEquity ? q.returnOnEquity * 100 : null,
           market,
-          currency
+          currency,
+          sector: STOCK_SECTOR_MAP[q.symbol] || 'Lainnya'
         };
       });
 
@@ -262,5 +264,73 @@ export const getScreener = async (req, res) => {
   } catch (error) {
     console.error('Error fetching screener data:', error?.message || error);
     res.status(500).json({ success: false, message: 'Failed to fetch screener data', error: error?.message });
+  }
+};
+
+export const getSearch = async (req, res) => {
+  try {
+    let { q } = req.query;
+    if (!q) return res.status(400).json({ success: false, message: 'Missing query' });
+
+    // Try a simple search
+    const searchResult = await yahooFinance.search(q, { newsCount: 0, quotesCount: 15 }, { validateResult: false });
+    if (!searchResult || !searchResult.quotes) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // Filter to EQUITY, ETF
+    const equities = searchResult.quotes.filter(i => i.quoteType === 'EQUITY' || i.quoteType === 'ETF');
+    if (equities.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // Get the symbols and fetch real quotes
+    const symbols = equities.map(e => e.symbol);
+    const rawQuotes = await yahooFinance.quote(symbols, {}, { validateResult: false }).catch(() => []);
+    const quotesArray = Array.isArray(rawQuotes) ? rawQuotes : [rawQuotes];
+
+    const processedQuotes = quotesArray
+      .filter(q => q && q.regularMarketPrice != null)
+      .map((q) => {
+        let ticker = q.symbol || '';
+        let market = 'IDX';
+        
+        if (ticker.endsWith('.JK')) {
+          market = 'IDX';
+          ticker = ticker.replace('.JK', '');
+        } else if (US_STOCKS.includes(ticker) || !ticker.includes('.')) {
+          market = 'US';
+        } else {
+          market = 'Global';
+        }
+
+        let currency = q.currency || 'USD';
+        if (q.symbol.endsWith('.JK')) currency = 'IDR';
+
+        let pbv = q.priceToBook || 0;
+        if (q.symbol.endsWith('.JK') && pbv > 100) {
+          pbv = pbv / 15800;
+        }
+
+        return {
+          ticker,
+          name: q.shortName || q.longName || q.symbol,
+          price: q.regularMarketPrice,
+          changePercent: q.regularMarketChangePercent ?? 0,
+          volume: q.regularMarketVolume ?? 0,
+          peRatio: q.trailingPE || q.forwardPE || 0,
+          pbv: pbv,
+          dividendYield: q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : (q.dividendYield ? q.dividendYield : 0),
+          roe: q.returnOnEquity ? q.returnOnEquity * 100 : null,
+          market,
+          currency,
+          sector: STOCK_SECTOR_MAP[q.symbol] || 'Lainnya'
+        };
+      });
+
+    res.status(200).json({ success: true, data: processedQuotes });
+  } catch (error) {
+    console.error('Error in search:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Failed to search', error: error?.message });
   }
 };

@@ -28,7 +28,7 @@ const LoginPage = () => {
         login(response.data.token, response.data.data);
         // Sync virtual balance from backend
         if (response.data.data?.saldo_virtual !== undefined) {
-          useUserStore.getState().setBalance(response.data.data.saldo_virtual);
+          useUserStore.getState().setBalance(Number(response.data.data.saldo_virtual));
         }
         
         // Redirect to onboarding if profile is not set

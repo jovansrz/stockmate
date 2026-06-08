@@ -31,7 +31,7 @@ const RegisterPage = () => {
         
         // Sync virtual balance if provided
         if (response.data.data?.saldo_virtual !== undefined) {
-          useUserStore.getState().setBalance(response.data.data.saldo_virtual);
+          useUserStore.getState().setBalance(Number(response.data.data.saldo_virtual));
         }
         
         navigate('/onboarding');

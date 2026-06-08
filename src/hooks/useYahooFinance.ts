@@ -27,6 +27,7 @@ export interface YahooQuoteData {
   roe?: number | null
   dividendYield?: number | null
   currency?: string | null
+  volume?: number | null
 }
 
 export type FetchStatus = "idle" | "loading" | "success" | "error"
@@ -118,6 +119,7 @@ export function useYahooFinance(symbol: string): UseYahooFinanceResult {
             roe: quote.returnOnEquity ? quote.returnOnEquity * 100 : null,
             dividendYield: quote.trailingAnnualDividendYield ? quote.trailingAnnualDividendYield * 100 : (quote.dividendYield ? quote.dividendYield : null),
             currency: quote.currency,
+            volume: quote.regularMarketVolume,
             lastUpdated: new Date(),
           })
           setStatus("success")
@@ -167,6 +169,7 @@ export function useYahooFinance(symbol: string): UseYahooFinanceResult {
                   roe: quote.returnOnEquity ? quote.returnOnEquity * 100 : null,
                   dividendYield: quote.trailingAnnualDividendYield ? quote.trailingAnnualDividendYield * 100 : (quote.dividendYield ? quote.dividendYield : null),
                   currency: quote.currency || prev.currency,
+                  volume: quote.regularMarketVolume,
                   lastUpdated: new Date(),
                 }
               : prev

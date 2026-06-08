@@ -106,6 +106,10 @@ export default function ScreenerPage() {
   const [activeMarket, setActiveMarket] = useState<"all" | "IDX" | "US" | "Global">("IDX")
   const [viewMode, setViewMode] = useState<"table" | "card">("table")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  
+  // Dynamic Stocks State
+  const [dynamicStocks, setDynamicStocks] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
 
   // Live price & ratio data map
   const [livePrices, setLivePrices] = useState<Record<string, any>>({})
@@ -117,6 +121,7 @@ export default function ScreenerPage() {
         const res = await api.get("/market/screener")
         if (res.data.success) {
           const map: Record<string, any> = {}
+          const newDynamic: any[] = []
           res.data.data.forEach((q: any) => {
             map[q.ticker] = {
               price: q.price,
@@ -129,8 +134,36 @@ export default function ScreenerPage() {
               market: q.market,
               currency: q.currency
             }
+            newDynamic.push({
+              ticker: q.ticker,
+              name: q.name || q.ticker,
+              sector: q.sector || "Lainnya",
+              price: q.price || 0,
+              changePercent: q.changePercent || 0,
+              volume: q.volume || 0,
+              avgVolume: q.volume || 0,
+              peRatio: q.peRatio || null,
+              pbv: q.pbv || null,
+              roe: q.roe || null,
+              dividendYield: q.dividendYield || null,
+              market: q.market,
+              currency: q.currency || "IDR",
+              trend: q.changePercent > 0 ? "up" : "down",
+              isSharia: false,
+              board: "Utama",
+              healthScore: 50,
+              fundamentalSummary: { id: "Data pasar sekunder.", en: "Secondary market data." },
+              description: { id: "Informasi detail tersedia di halaman saham.", en: "Detailed information available on the stock page." }
+            })
           })
           setLivePrices(map)
+          setDynamicStocks(prev => {
+            const currentMap = new Map(prev.map(s => [s.ticker, s]))
+            newDynamic.forEach(s => {
+              if (!currentMap.has(s.ticker)) currentMap.set(s.ticker, s)
+            })
+            return Array.from(currentMap.values())
+          })
         }
       } catch (e) {
         // Silently fallback to mock data
@@ -142,6 +175,71 @@ export default function ScreenerPage() {
     const id = setInterval(fetchLivePrices, 30_000)
     return () => clearInterval(id)
   }, [])
+
+  // Dynamic Search Effect
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await api.get(`/market/search?q=${encodeURIComponent(searchQuery.trim())}`)
+        if (res.data.success && res.data.data.length > 0) {
+          const newStocks = res.data.data.map((q: any) => ({
+            ticker: q.ticker,
+            name: q.name,
+            sector: q.sector || "Lainnya",
+            price: q.price || 0,
+            changePercent: q.changePercent || 0,
+            volume: q.volume || 0,
+            avgVolume: q.volume || 0,
+            peRatio: q.peRatio || null,
+            pbv: q.pbv || null,
+            roe: q.roe || null,
+            dividendYield: q.dividendYield || null,
+            market: q.market,
+            currency: q.currency,
+            trend: q.changePercent > 0 ? "up" : "down",
+            isSharia: false,
+            board: "Utama",
+            healthScore: 50, // Default baseline for dynamically fetched stocks
+            fundamentalSummary: { id: "Data diambil secara real-time.", en: "Data fetched in real-time." },
+            description: { id: "Informasi detail dapat dilihat di halaman saham.", en: "Detailed information available on the stock page." }
+          }))
+          
+          setDynamicStocks(prev => {
+            const map = new Map(prev.map(s => [s.ticker, s]))
+            newStocks.forEach((s: any) => map.set(s.ticker, s))
+            return Array.from(map.values())
+          })
+
+          setLivePrices(prev => {
+            const next = { ...prev }
+            res.data.data.forEach((q: any) => {
+              next[q.ticker] = {
+                price: q.price,
+                changePercent: q.changePercent,
+                volume: q.volume,
+                peRatio: q.peRatio,
+                pbv: q.pbv,
+                roe: q.roe,
+                dividendYield: q.dividendYield,
+                market: q.market,
+                currency: q.currency
+              }
+            })
+            return next
+          })
+        }
+      } catch (e) {
+        // Silent catch
+      } finally {
+        setIsSearching(false)
+      }
+    }, 600)
+    
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Click-and-drag horizontal scroll handlers for category pills
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -194,9 +292,18 @@ export default function ScreenerPage() {
     { id: "Lainnya", label: t("screener.sectors.lainnya") || "Lainnya" }
   ], [watchlist.length, t])
 
-  // Map live data into stocksData
+  // Map live data into stocksData + dynamicStocks
   const liveStocksData = useMemo(() => {
-    return stocksData.map(stock => {
+    // Combine static and dynamic stocks
+    const map = new Map(stocksData.map(s => [s.ticker, s]))
+    dynamicStocks.forEach(s => {
+      if (!map.has(s.ticker)) {
+        map.set(s.ticker, s)
+      }
+    })
+    const combinedStocks = Array.from(map.values())
+
+    return combinedStocks.map(stock => {
       const live = livePrices[stock.ticker]
       
       const peRatio = live ? (live.peRatio ?? stock.peRatio) : stock.peRatio
@@ -316,18 +423,18 @@ export default function ScreenerPage() {
   const filteredStocks = useMemo(() => {
     let list = liveStocksData
 
-    // 1. Filter by Market Segment
-    if (activeMarket !== "all") {
-      list = list.filter(s => s.market === activeMarket)
-    }
-
-    // 2. Filter by Search Query
+    // 1. Filter by Search Query (Bypasses other filters if active)
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase().trim()
-      list = list.filter(s => 
+      return list.filter(s => 
         s.ticker.toLowerCase().includes(q) || 
         s.name.toLowerCase().includes(q)
       )
+    }
+
+    // 2. Filter by Market Segment
+    if (activeMarket !== "all") {
+      list = list.filter(s => s.market === activeMarket)
     }
 
     // 3. Filter by Category Pill
